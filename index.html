@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel de webservices</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #171d25; --panel-2: #1f2731; --text: #e6edf3;
+    --muted: #8b98a5; --border: #2a3440; --accent: #3b82f6; --gap: 12px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+  button, input, select { font: inherit; color: inherit; }
+  .hidden { display: none !important; }
+  body:not(.admin) .admin-only { display: none !important; }
+  .badge { font-size: 12px; background: #92400e; color: #fde68a; border-radius: 999px; padding: 4px 10px; }
+
+  #login { display: grid; place-items: center; min-height: 100vh; padding: 16px; }
+  .login-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 28px; width: 100%; max-width: 360px; }
+  .login-card h1 { margin: 0 0 4px; font-size: 20px; }
+  .login-card p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  input[type=password], input[type=text], input[type=url], select { width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; }
+  input:focus, select:focus { border-color: var(--accent); }
+  .btn { background: var(--accent); border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; font-weight: 600; color: #fff; }
+  .btn.secondary { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); font-weight: 500; }
+  .btn:hover { filter: brightness(1.1); }
+  .error { color: #fca5a5; font-size: 13px; min-height: 18px; margin: 8px 0 0; }
+
+  header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 20; }
+  header h1 { margin: 0; font-size: 18px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .toolbar label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .toolbar select { width: auto; padding: 7px 8px; }
+
+  main { padding: 20px; }
+  #grid { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: var(--row); grid-auto-flow: dense; gap: var(--gap); }
+  .tile { position: relative; border-radius: 14px; overflow: hidden; color: #fff; background: var(--tile-color); border: 1px solid rgba(255,255,255,.12); display: flex; flex-direction: column; }
+  .tile a.link { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 14px; color: inherit; text-decoration: none; min-height: 0; background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.28)); }
+  .tile.has-embed a.link { position: absolute; inset: 0; justify-content: flex-start; background: none; z-index: 2; }
+  .tile.has-embed .caption { background: rgba(0,0,0,.55); border-radius: 8px; padding: 6px 10px; align-self: flex-start; }
+  .tile iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; pointer-events: none; }
+  .tile .title { font-weight: 650; font-size: clamp(14px, 1.6vw, 20px); line-height: 1.2; word-break: break-word; }
+  .tile .host { font-size: 12px; opacity: .8; margin-top: 3px; word-break: break-all; }
+  .tile:hover { box-shadow: 0 6px 22px rgba(0,0,0,.4); }
+
+  body.editing .tile { outline: 2px dashed rgba(255,255,255,.35); outline-offset: -4px; cursor: grab; }
+  body.editing .tile a.link { pointer-events: none; }
+  .tile.dragging { opacity: .4; }
+  .tile.drop-target { outline: 3px solid #fff; }
+  .edit-bar { display: none; position: absolute; top: 8px; left: 8px; right: 8px; z-index: 5; gap: 6px; flex-wrap: wrap; align-items: center; }
+  body.editing .edit-bar { display: flex; }
+  .edit-bar button { background: rgba(15,20,25,.88); border: 1px solid rgba(255,255,255,.25); border-radius: 7px; padding: 4px 8px; font-size: 12px; cursor: pointer; color: #fff; }
+  .edit-bar .sp { flex: 1; }
+  .size-pick { display: flex; align-items: center; gap: 3px; color: #fff; font-size: 12px; background: rgba(15,20,25,.88); border-radius: 7px; padding: 2px 6px; border: 1px solid rgba(255,255,255,.25); }
+  .size-pick select { width: auto; border: 0; padding: 2px; background: transparent; color: #fff; font-size: 12px; }
+  .size-pick select option { color: #000; }
+
+  .empty { color: var(--muted); text-align: center; padding: 60px 0; }
+
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 14px; padding: 22px; width: min(440px, 92vw); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h2 { margin: 0 0 14px; font-size: 18px; }
+  .field { margin-bottom: 12px; }
+  .field > label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+  .check small { color: var(--muted); display: block; }
+  input[type=color] { width: 100%; height: 40px; padding: 2px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  @media (max-width: 640px) { header { padding: 12px; } main { padding: 12px; } }
+</style>
+</head>
+<body>
+
+<dialog id="loginDialog">
+  <form id="loginForm" method="dialog">
+    <h2>Acceso de administrador</h2>
+    <div class="field">
+      <input type="password" id="password" placeholder="Contraseña" autocomplete="current-password" required>
+      <p class="error" id="loginError"></p>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn secondary" id="loginCancel">Cancelar</button>
+      <button type="submit" class="btn">Ingresar</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="app">
+  <header>
+    <h1>Panel de webservices</h1>
+    <div class="toolbar">
+      <span id="draftBadge" class="badge hidden" title="Hiciste cambios que todavía no están en links.json">Cambios sin publicar</span>
+      <label id="settingsCols" class="hidden">Columnas <select id="colsSelect"></select></label>
+      <label id="settingsRow" class="hidden">Alto de celda
+        <select id="rowSelect">
+          <option value="70">Chico</option>
+          <option value="90">Medio</option>
+          <option value="120">Grande</option>
+        </select>
+      </label>
+      <button class="btn secondary hidden" id="resetBtn" title="Descartar tus cambios y volver a lo publicado">Descartar cambios</button>
+      <button class="btn secondary hidden" id="importBtn" title="Cargar una configuración desde un archivo">Importar</button>
+      <input type="file" id="importFile" accept="application/json,.json" class="hidden">
+      <button class="btn secondary admin-only" id="exportBtn" title="Descargar links.json para subirlo al repositorio">Exportar links.json</button>
+      <button class="btn secondary admin-only" id="addBtn">+ Agregar</button>
+      <button class="btn secondary admin-only" id="editBtn">Editar grilla</button>
+      <button class="btn secondary admin-only" id="logoutBtn">Salir</button>
+      <button class="btn secondary" id="adminBtn">Acceso admin</button>
+    </div>
+  </header>
+  <main>
+    <div id="grid"></div>
+    <div id="empty" class="empty hidden"></div>
+  </main>
+</div>
+
+<dialog id="tileDialog">
+  <form method="dialog" id="tileForm">
+    <h2 id="dialogTitle">Agregar webservice</h2>
+    <div class="field"><label for="fTitle">Nombre</label><input type="text" id="fTitle" maxlength="80" placeholder="Ej: Cuentas corrientes" required></div>
+    <div class="field"><label for="fUrl">Link</label><input type="text" id="fUrl" placeholder="https://..." required></div>
+    <div class="row">
+      <div class="field"><label for="fW">Ancho (columnas)</label><select id="fW"></select></div>
+      <div class="field"><label for="fH">Alto (filas)</label><select id="fH"></select></div>
+    </div>
+    <div class="field"><label for="fColor">Color</label><input type="color" id="fColor" value="#2563eb"></div>
+    <div class="field check">
+      <input type="checkbox" id="fEmbed">
+      <label for="fEmbed">Mostrar vista previa dentro del cuadro
+        <small>Solo funciona si ese sitio permite ser embebido. Si queda en blanco, desmarcalo.</small>
+      </label>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn secondary" id="cancelBtn">Cancelar</button>
+      <button type="submit" class="btn">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  // SHA-256 de la contraseña (no queda en texto plano en el código).
+  // Para cambiarla: calcular el SHA-256 de la nueva clave y reemplazar este valor.
+  const PASSWORD_HASH = '6c22857a6972e3603ff2cfb0a03e6dd0da6b3a3871ea1ede8c0dfedbdf5d34e6';
+  const STORE_KEY = 'panel_webservices_v1';
+  const SESSION_KEY = 'panel_webservices_ok';
+  const MAX_SPAN = 12;
+
+  const $ = (id) => document.getElementById(id);
+  let state = { columns: 8, rowHeight: 90, tiles: [] };
+  let editing = false, editingId = null, dragId = null;
+
+  // ---------- SHA-256 ----------
+  function sha256Fallback(ascii) {
+    const rr = (v, a) => (v >>> a) | (v << (32 - a));
+    const maxWord = Math.pow(2, 32);
+    let i, j, result = '';
+    const words = [];
+    const bitLen = ascii.length * 8;
+    const hash0 = [], k = [];
+    const composite = {};
+    let pc = 0;
+    for (let c = 2; pc < 64; c++) {
+      if (!composite[c]) {
+        for (i = 0; i < 313; i += c) composite[i] = c;
+        hash0[pc] = (Math.pow(c, 0.5) * maxWord) | 0;
+        k[pc++] = (Math.pow(c, 1 / 3) * maxWord) | 0;
+      }
+    }
+    let hash = hash0.slice(0, 8);
+    ascii += '\x80';
+    while (ascii.length % 64 - 56) ascii += '\x00';
+    for (i = 0; i < ascii.length; i++) {
+      j = ascii.charCodeAt(i);
+      words[i >> 2] |= j << ((3 - i) % 4) * 8;
+    }
+    words[words.length] = (bitLen / maxWord) | 0;
+    words[words.length] = bitLen;
+    for (j = 0; j < words.length;) {
+      const w = words.slice(j, j += 16);
+      const old = hash;
+      hash = hash.slice(0, 8);
+      for (i = 0; i < 64; i++) {
+        const w15 = w[i - 15], w2 = w[i - 2];
+        const a = hash[0], e = hash[4];
+        const t1 = hash[7] + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + ((e & hash[5]) ^ (~e & hash[6])) + k[i] +
+          (w[i] = i < 16 ? w[i] : (w[i - 16] + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3)) + w[i - 7] + (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))) | 0);
+        const t2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+        hash = [(t1 + t2) | 0].concat(hash);
+        hash[4] = (hash[4] + t1) | 0;
+      }
+      for (i = 0; i < 8; i++) hash[i] = (hash[i] + old[i]) | 0;
+    }
+    for (i = 0; i < 8; i++) for (j = 3; j + 1; j--) {
+      const b = (hash[i] >> (j * 8)) & 255;
+      result += (b < 16 ? '0' : '') + b.toString(16);
+    }
+    return result;
+  }
+
+  async function sha256Hex(text) {
+    if (window.crypto && crypto.subtle) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    return sha256Fallback(unescape(encodeURIComponent(text)));
+  }
+
+  // ---------- Almacenamiento (localStorage) ----------
+  function sanitizeTile(t) {
+    if (!t || typeof t !== 'object') return null;
+    let url;
+    try { url = new URL(String(t.url)); } catch { return null; }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    const n = (v, min, max, d) => { const x = parseInt(v, 10); return Number.isNaN(x) ? d : Math.min(max, Math.max(min, x)); };
+    return {
+      id: String(t.id || crypto.randomUUID()).slice(0, 64),
+      title: String(t.title || '').trim().slice(0, 80) || url.hostname,
+      url: url.toString(),
+      w: n(t.w, 1, MAX_SPAN, 2),
+      h: n(t.h, 1, MAX_SPAN, 2),
+      color: /^#[0-9a-fA-F]{6}$/.test(t.color) ? t.color : '#2563eb',
+      embed: t.embed === true,
+    };
+  }
+  function sanitizeState(s) {
+    if (!s || typeof s !== 'object' || !Array.isArray(s.tiles)) return null;
+    const n = (v, min, max, d) => { const x = parseInt(v, 10); return Number.isNaN(x) ? d : Math.min(max, Math.max(min, x)); };
+    return {
+      columns: n(s.columns, 4, 12, 8),
+      rowHeight: n(s.rowHeight, 50, 200, 90),
+      tiles: s.tiles.slice(0, 200).map(sanitizeTile).filter(Boolean),
+    };
+  }
+  let published = { columns: 8, rowHeight: 90, tiles: [] };
+  let publishedError = false;
+
+  async function loadPublished() {
+    try {
+      const res = await fetch('links.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error(String(res.status));
+      const s = sanitizeState(await res.json());
+      if (!s) throw new Error('formato');
+      published = s;
+      publishedError = false;
+    } catch {
+      publishedError = true;
+    }
+  }
+  function readDraft() {
+    try { return sanitizeState(JSON.parse(localStorage.getItem(STORE_KEY))); } catch { return null; }
+  }
+  // Público: siempre lo publicado. Admin: su borrador si existe, si no lo publicado.
+  function load() {
+    const draft = isAdmin ? readDraft() : null;
+    state = draft || JSON.parse(JSON.stringify(published));
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    catch { alert('No se pudo guardar el borrador en este navegador. Usá "Exportar links.json" para no perder los cambios.'); }
+    updateBadge();
+  }
+  function updateBadge() {
+    $('draftBadge').classList.toggle('hidden', !(isAdmin && readDraft()));
+    $('resetBtn').classList.toggle('hidden', !(isAdmin && editing && readDraft()));
+  }
+
+  // ---------- Acceso admin ----------
+  let isAdmin = false;
+  function setAdmin(on) {
+    isAdmin = on;
+    document.body.classList.toggle('admin', on);
+    $('adminBtn').classList.toggle('hidden', on);
+    if (!on) setEditing(false);
+    load();
+    $('colsSelect').value = state.columns;
+    $('rowSelect').value = String(state.rowHeight);
+    updateBadge();
+    render();
+  }
+  const loginDlg = $('loginDialog');
+  $('adminBtn').addEventListener('click', () => {
+    $('loginError').textContent = '';
+    $('password').value = '';
+    loginDlg.showModal();
+    $('password').focus();
+  });
+  $('loginCancel').addEventListener('click', () => loginDlg.close());
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const h = await sha256Hex($('password').value);
+    if (h === PASSWORD_HASH) {
+      try { sessionStorage.setItem(SESSION_KEY, '1'); } catch {}
+      loginDlg.close();
+      setAdmin(true);
+    } else {
+      $('loginError').textContent = 'Contraseña incorrecta';
+      $('password').select();
+    }
+  });
+  $('logoutBtn').addEventListener('click', () => {
+    try { sessionStorage.removeItem(SESSION_KEY); } catch {}
+    setAdmin(false);
+  });
+  $('resetBtn').addEventListener('click', () => {
+    if (!confirm('¿Descartar tus cambios y volver a lo que está publicado en links.json?')) return;
+    try { localStorage.removeItem(STORE_KEY); } catch {}
+    load();
+    $('colsSelect').value = state.columns;
+    $('rowSelect').value = String(state.rowHeight);
+    updateBadge();
+    render();
+  });
+
+  // ---------- Render ----------
+  function effectiveCols() {
+    const w = window.innerWidth;
+    if (w < 520) return Math.min(2, state.columns);
+    if (w < 900) return Math.min(4, state.columns);
+    return state.columns;
+  }
+  function render() {
+    const grid = $('grid');
+    const cols = effectiveCols();
+    grid.style.setProperty('--cols', cols);
+    grid.style.setProperty('--row', state.rowHeight + 'px');
+    grid.innerHTML = '';
+    const empty = $('empty');
+    empty.classList.toggle('hidden', state.tiles.length > 0);
+    empty.textContent = publishedError && !isAdmin
+      ? 'No se pudo cargar la lista de webservices.'
+      : (isAdmin ? 'Todavía no hay webservices. Tocá + Agregar para cargar el primero.' : 'Todavía no hay webservices publicados.');
+    for (const t of state.tiles) grid.appendChild(buildTile(t, cols));
+  }
+  function makeSpanSelect(value) {
+    const s = document.createElement('select');
+    for (let i = 1; i <= MAX_SPAN; i++) s.add(new Option(i, i));
+    s.value = value;
+    return s;
+  }
+  function buildTile(t, cols) {
+    const el = document.createElement('div');
+    el.className = 'tile' + (t.embed ? ' has-embed' : '');
+    el.style.setProperty('--tile-color', t.color);
+    el.style.gridColumn = `span ${Math.min(t.w, cols)}`;
+    el.style.gridRow = `span ${t.h}`;
+    el.draggable = editing;
+
+    if (t.embed) {
+      const f = document.createElement('iframe');
+      f.src = t.url;
+      f.loading = 'lazy';
+      f.referrerPolicy = 'no-referrer';
+      f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
+      el.appendChild(f);
+    }
+
+    const a = document.createElement('a');
+    a.className = 'link';
+    a.href = t.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    const cap = document.createElement('div');
+    cap.className = 'caption';
+    const title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = t.title;
+    const host = document.createElement('div');
+    host.className = 'host';
+    try { host.textContent = new URL(t.url).host; } catch {}
+    cap.append(title, host);
+    a.appendChild(cap);
+    el.appendChild(a);
+
+    const bar = document.createElement('div');
+    bar.className = 'edit-bar';
+    const size = document.createElement('div');
+    size.className = 'size-pick';
+    const sw = makeSpanSelect(t.w), sh = makeSpanSelect(t.h);
+    sw.title = 'Ancho'; sh.title = 'Alto';
+    sw.addEventListener('change', () => { t.w = +sw.value; save(); render(); });
+    sh.addEventListener('change', () => { t.h = +sh.value; save(); render(); });
+    size.append(sw, document.createTextNode('×'), sh);
+    const sp = document.createElement('span');
+    sp.className = 'sp';
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button'; editBtn.textContent = 'Editar';
+    editBtn.addEventListener('click', () => openDialog(t));
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.textContent = '✕'; delBtn.title = 'Eliminar';
+    delBtn.addEventListener('click', () => {
+      if (!confirm(`¿Eliminar "${t.title}"?`)) return;
+      state.tiles = state.tiles.filter((x) => x.id !== t.id);
+      save(); render();
+    });
+    bar.append(size, sp, editBtn, delBtn);
+    el.appendChild(bar);
+
+    el.addEventListener('dragstart', (e) => {
+      if (!editing) return e.preventDefault();
+      dragId = t.id;
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', t.id);
+    });
+    el.addEventListener('dragend', () => {
+      dragId = null;
+      document.querySelectorAll('.tile').forEach((n) => n.classList.remove('dragging', 'drop-target'));
+    });
+    el.addEventListener('dragover', (e) => {
+      if (!editing || !dragId || dragId === t.id) return;
+      e.preventDefault();
+      el.classList.add('drop-target');
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
+    el.addEventListener('drop', (e) => {
+      if (!editing || !dragId || dragId === t.id) return;
+      e.preventDefault();
+      const from = state.tiles.findIndex((x) => x.id === dragId);
+      const to = state.tiles.findIndex((x) => x.id === t.id);
+      const [moved] = state.tiles.splice(from, 1);
+      state.tiles.splice(to, 0, moved);
+      save(); render();
+    });
+    return el;
+  }
+
+  // ---------- Edición ----------
+  function setEditing(on) {
+    editing = on;
+    document.body.classList.toggle('editing', on);
+    $('editBtn').textContent = on ? 'Listo' : 'Editar grilla';
+    for (const id of ['settingsCols', 'settingsRow', 'importBtn']) $(id).classList.toggle('hidden', !on);
+    updateBadge();
+    render();
+  }
+  $('editBtn').addEventListener('click', () => setEditing(!editing));
+  $('colsSelect').addEventListener('change', (e) => { state.columns = +e.target.value; save(); render(); });
+  $('rowSelect').addEventListener('change', (e) => { state.rowHeight = +e.target.value; save(); render(); });
+
+  // ---------- Exportar / Importar ----------
+  $('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'links.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const s = sanitizeState(JSON.parse(await file.text()));
+      if (!s) throw new Error();
+      if (!confirm(`Se va a reemplazar la grilla actual por la del archivo (${s.tiles.length} cuadros). ¿Continuar?`)) return;
+      state = s;
+      $('colsSelect').value = state.columns;
+      $('rowSelect').value = String(state.rowHeight);
+      save(); render();
+    } catch {
+      alert('El archivo no es una configuración válida.');
+    }
+  });
+
+  // ---------- Modal ----------
+  const dlg = $('tileDialog');
+  function openDialog(tile) {
+    editingId = tile ? tile.id : null;
+    $('dialogTitle').textContent = tile ? 'Editar webservice' : 'Agregar webservice';
+    $('fTitle').value = tile ? tile.title : '';
+    $('fUrl').value = tile ? tile.url : '';
+    $('fW').value = tile ? tile.w : 2;
+    $('fH').value = tile ? tile.h : 2;
+    $('fColor').value = tile ? tile.color : '#2563eb';
+    $('fEmbed').checked = tile ? tile.embed : false;
+    dlg.showModal();
+    $('fTitle').focus();
+  }
+  $('addBtn').addEventListener('click', () => openDialog(null));
+  $('cancelBtn').addEventListener('click', () => dlg.close());
+  $('tileForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    let url = $('fUrl').value.trim();
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
+    const data = sanitizeTile({
+      id: editingId || crypto.randomUUID(),
+      title: $('fTitle').value, url,
+      w: $('fW').value, h: $('fH').value,
+      color: $('fColor').value, embed: $('fEmbed').checked,
+    });
+    if (!data) return alert('El link no es válido (tiene que ser http:// o https://).');
+    if (editingId) state.tiles[state.tiles.findIndex((x) => x.id === editingId)] = data;
+    else state.tiles.push(data);
+    dlg.close();
+    save(); render();
+  });
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (!$('app').classList.contains('hidden')) render(); }, 150);
+  });
+
+  // ---------- Inicio ----------
+  for (let i = 1; i <= MAX_SPAN; i++) { $('fW').add(new Option(i, i)); $('fH').add(new Option(i, i)); }
+  for (let i = 4; i <= 12; i++) $('colsSelect').add(new Option(i, i));
+  loadPublished().then(() => {
+    let ok = false;
+    try { ok = sessionStorage.getItem(SESSION_KEY) === '1'; } catch {}
+    setAdmin(ok);
+  });
+
+})();
+</script>
+</body>
+</html>
