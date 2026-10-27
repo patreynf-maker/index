@@ -1,0 +1,78 @@
+{
+  "columns": 8,
+  "rowHeight": 90,
+  "tiles": [
+    {
+      "id": "3c0cc40e-6444-4428-a015-c13ff7649c60",
+      "title": "Cuenta YPF",
+      "url": "https://patreynf-maker.github.io/ctaypf/",
+      "w": 2,
+      "h": 2,
+      "color": "#2563eb",
+      "embed": false
+    },
+    {
+      "id": "5de5af82-8854-408b-87df-fb5b0433b5dd",
+      "title": "Liquidacion de tarjetas",
+      "url": "https://patreynf-maker.github.io/liquidaciones/",
+      "w": 2,
+      "h": 2,
+      "color": "#2563eb",
+      "embed": false
+    },
+    {
+      "id": "d95c4ba7-86d5-4e3d-b5e8-a24c9865a68c",
+      "title": "Liquidacion de Mercadopago",
+      "url": "https://patreynf-maker.github.io/liqmp/",
+      "w": 2,
+      "h": 2,
+      "color": "#2563eb",
+      "embed": false
+    },
+    {
+      "id": "9bc75e34-6922-4115-ac56-e8c2209a385c",
+      "title": "Despachos",
+      "url": "https://patreynf-maker.github.io/despachos/",
+      "w": 2,
+      "h": 2,
+      "color": "#2563eb",
+      "embed": false
+    },
+    {
+      "id": "2c6df6a1-1148-442d-b9bd-8110fbce54a0",
+      "title": "Conciliacion de tarjetas",
+      "url": "https://patreynf-maker.github.io/tjts/",
+      "w": 2,
+      "h": 2,
+      "color": "#2563eb",
+      "embed": false
+    },
+    {
+      "id": "75b8bde8-4cd3-4e44-9595-a48f2364a2c1",
+      "title": "Extractor PDFs aforadores",
+      "url": "https://patreynf-maker.github.io/aforadores/",
+      "w": 2,
+      "h": 2,
+      "color": "#2563eb",
+      "embed": false
+    },
+    {
+      "id": "45c49722-b98a-42e7-8567-035a7d293f2d",
+      "title": "Extractor cuentas corrientes",
+      "url": "https://patreynf-maker.github.io/hojasremitos/",
+      "w": 2,
+      "h": 2,
+      "color": "#2563eb",
+      "embed": false
+    },
+    {
+      "id": "361971f6-b2eb-4c2e-a2d8-b73d84e641eb",
+      "title": "Cuentas Corrientes",
+      "url": "https://patreynf-maker.github.io/ctasctes/",
+      "w": 2,
+      "h": 2,
+      "color": "#2563eb",
+      "embed": false
+    }
+  ]
+}
