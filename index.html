@@ -44,6 +44,11 @@
   .tile .title { font-weight: 650; font-size: clamp(13px, 1.2vw, 16px); line-height: 1.2; word-break: break-word; }
   .tile .desc { font-size: 12px; line-height: 1.35; opacity: .95; margin-top: 6px; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--lines, 3); word-break: break-word; }
   .tile .host { font-size: 11px; opacity: .75; margin-top: 5px; word-break: break-all; }
+  .tile .icon { margin-right: 6px; }
+  .tile .icon.big { display: block; margin: 0 0 4px; font-size: 28px; line-height: 1.1; }
+  .emoji-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .emoji-grid button { width: 36px; height: 36px; font-size: 18px; line-height: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; padding: 0; }
+  .emoji-grid button:hover { border-color: var(--accent); }
   .tile:hover { box-shadow: 0 6px 22px rgba(0,0,0,.4); }
 
   body.editing .tile { outline: 2px dashed rgba(255,255,255,.35); outline-offset: -4px; cursor: grab; }
@@ -98,6 +103,11 @@
     <div class="toolbar">
       <span id="draftBadge" class="badge hidden" title="Hiciste cambios que todavía no están en links.json">Cambios sin publicar</span>
       <label id="settingsCols" class="hidden">Columnas <select id="colsSelect"></select></label>
+      <label id="settingsUniform" class="hidden" title="Todos los cuadros con la misma medida, sin importar su contenido">
+        <input type="checkbox" id="uniformChk"> Mismo tamaño
+        <select id="uwSelect" title="Ancho (columnas)"></select> ×
+        <select id="uhSelect" title="Alto (filas)"></select>
+      </label>
       <label id="settingsRow" class="hidden">Tamaño de celda
         <select id="rowSelect">
           <option value="60">Chica</option>
@@ -128,8 +138,12 @@
     <h2 id="dialogTitle">Agregar webservice</h2>
     <div class="field"><label for="fTitle">Nombre</label><input type="text" id="fTitle" maxlength="80" placeholder="Ej: Cuentas corrientes" required></div>
     <div class="field"><label for="fUrl">Link</label><input type="text" id="fUrl" placeholder="https://..." required></div>
+    <div class="field"><label for="fIcon">Ícono (emoji, opcional)</label>
+      <input type="text" id="fIcon" maxlength="12" placeholder="Elegí uno o pegá cualquier emoji">
+      <div class="emoji-grid" id="emojiGrid"></div>
+    </div>
     <div class="field"><label for="fDesc">Descripción (opcional)</label><textarea id="fDesc" maxlength="300" rows="3" placeholder="Qué hace esta app y cómo se usa"></textarea></div>
-    <div class="row">
+    <div class="row" id="sizeRow">
       <div class="field"><label for="fW">Ancho (columnas)</label><select id="fW"></select></div>
       <div class="field"><label for="fH">Alto (filas)</label><select id="fH"></select></div>
     </div>
@@ -159,7 +173,7 @@
   const MAX_SPAN = 12;
 
   const $ = (id) => document.getElementById(id);
-  let state = { columns: 8, rowHeight: 90, tiles: [] };
+  let state = { columns: 8, rowHeight: 90, uniform: false, uw: 2, uh: 2, tiles: [] };
   let editing = false, editingId = null, dragId = null;
 
   // ---------- SHA-256 ----------
@@ -283,6 +297,7 @@
       url: url.toString(),
       w: n(t.w, 1, MAX_SPAN, 2),
       h: n(t.h, 1, MAX_SPAN, 2),
+      icon: Array.from(String(t.icon || '').trim()).slice(0, 8).join(''),
       description: String(t.description || '').trim().slice(0, 300),
       color: ensureReadable(/^#[0-9a-fA-F]{6}$/.test(t.color) ? t.color.toLowerCase() : '#2563eb'),
       embed: t.embed === true,
@@ -294,10 +309,13 @@
     return {
       columns: n(s.columns, 4, 12, 8),
       rowHeight: n(s.rowHeight, 50, 200, 90),
+      uniform: s.uniform === true,
+      uw: n(s.uw, 1, MAX_SPAN, 2),
+      uh: n(s.uh, 1, MAX_SPAN, 2),
       tiles: s.tiles.slice(0, 200).map(sanitizeTile).filter(Boolean),
     };
   }
-  let published = { columns: 8, rowHeight: 90, tiles: [] };
+  let published = { columns: 8, rowHeight: 90, uniform: false, uw: 2, uh: 2, tiles: [] };
   let publishedError = false;
 
   async function loadPublished() {
@@ -330,10 +348,17 @@
     $('resetBtn').classList.toggle('hidden', !(isAdmin && editing && readDraft()));
   }
 
+  function syncUniformUI() {
+    $('uniformChk').checked = state.uniform;
+    $('uwSelect').value = state.uw;
+    $('uhSelect').value = state.uh;
+    $('uwSelect').disabled = $('uhSelect').disabled = !state.uniform;
+  }
   function setRowSelect() {
     const sel = $('rowSelect'), v = String(state.rowHeight);
     if (![...sel.options].some((o) => o.value === v)) sel.add(new Option('Personalizada (' + v + ')', v));
     sel.value = v;
+    syncUniformUI();
   }
 
   // ---------- Acceso admin ----------
@@ -414,8 +439,9 @@
     const el = document.createElement('div');
     el.className = 'tile' + (t.embed ? ' has-embed' : '');
     el.style.setProperty('--tile-color', t.color);
-    el.style.gridColumn = `span ${Math.min(t.w, cols)}`;
-    el.style.gridRow = `span ${t.h}`;
+    const sz = state.uniform ? { w: state.uw, h: state.uh } : { w: t.w, h: t.h };
+    el.style.gridColumn = `span ${Math.min(sz.w, cols)}`;
+    el.style.gridRow = `span ${sz.h}`;
     el.draggable = editing;
 
     if (t.embed) {
@@ -440,11 +466,18 @@
     const host = document.createElement('div');
     host.className = 'host';
     try { host.textContent = new URL(t.url).host; } catch {}
+    const tileH = sz.h * Math.round(state.rowHeight * 0.8) + (sz.h - 1) * 12;
+    const bigIcon = !!t.icon && tileH >= 140;
+    if (t.icon) {
+      const ic = document.createElement('span');
+      ic.className = bigIcon ? 'icon big' : 'icon';
+      ic.textContent = t.icon;
+      ic.setAttribute('aria-hidden', 'true');
+      if (bigIcon) cap.append(ic); else title.prepend(ic);
+    }
     cap.append(title);
     if (t.description) {
-      const rowH = Math.round(state.rowHeight * 0.8);
-      const tileH = t.h * rowH + (t.h - 1) * 12;
-      const lines = Math.max(0, Math.min(10, Math.floor((tileH - 85) / 16)));
+      const lines = Math.max(0, Math.min(10, Math.floor((tileH - 85 - (bigIcon ? 36 : 0)) / 16)));
       if (lines > 0) {
         const desc = document.createElement('div');
         desc.className = 'desc';
@@ -479,7 +512,7 @@
       state.tiles = state.tiles.filter((x) => x.id !== t.id);
       save(); render();
     });
-    bar.append(size, sp, editBtn, delBtn);
+    bar.append(...(state.uniform ? [] : [size]), sp, editBtn, delBtn);
     el.appendChild(bar);
 
     el.addEventListener('dragstart', (e) => {
@@ -516,11 +549,14 @@
     editing = on;
     document.body.classList.toggle('editing', on);
     $('editBtn').textContent = on ? 'Listo' : 'Editar grilla';
-    for (const id of ['settingsCols', 'settingsRow', 'importBtn', 'recolorBtn']) $(id).classList.toggle('hidden', !on);
+    for (const id of ['settingsCols', 'settingsRow', 'settingsUniform', 'importBtn', 'recolorBtn']) $(id).classList.toggle('hidden', !on);
     updateBadge();
     render();
   }
   $('editBtn').addEventListener('click', () => setEditing(!editing));
+  $('uniformChk').addEventListener('change', () => { state.uniform = $('uniformChk').checked; syncUniformUI(); save(); render(); });
+  $('uwSelect').addEventListener('change', () => { state.uw = +$('uwSelect').value; save(); render(); });
+  $('uhSelect').addEventListener('change', () => { state.uh = +$('uhSelect').value; save(); render(); });
   $('recolorBtn').addEventListener('click', () => {
     if (!confirm('Se van a reasignar los colores de todos los cuadros al azar. ¿Continuar?')) return;
     recolorAll(); save(); render();
@@ -564,14 +600,23 @@
     $('fUrl').value = tile ? tile.url : '';
     $('fW').value = tile ? tile.w : 2;
     $('fH').value = tile ? tile.h : 2;
+    $('fIcon').value = tile ? tile.icon || '' : '';
     $('fDesc').value = tile ? tile.description || '' : '';
     $('fColor').value = tile ? tile.color : pickColor(state.tiles.map((x) => x.color));
     $('fEmbed').checked = tile ? tile.embed : false;
+    $('sizeRow').classList.toggle('hidden', state.uniform);
     dlg.showModal();
     $('fTitle').focus();
   }
   $('addBtn').addEventListener('click', () => openDialog(null));
   $('cancelBtn').addEventListener('click', () => dlg.close());
+  const EMOJIS = ['⛽', '💳', '🧾', '💰', '📊', '📄', '🧮', '👥', '🏦', '🚚', '📦', '📱', '🔍', '📥', '🖨️', '✅', '📈', '🗂️', '⚙️', '🧰'];
+  for (const em of EMOJIS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = em; b.title = 'Usar ' + em;
+    b.addEventListener('click', () => { $('fIcon').value = em; });
+    $('emojiGrid').appendChild(b);
+  }
   $('rerollBtn').addEventListener('click', () => {
     $('fColor').value = pickColor(state.tiles.filter((x) => x.id !== editingId).map((x) => x.color));
   });
@@ -581,7 +626,7 @@
     if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
     const data = sanitizeTile({
       id: editingId || crypto.randomUUID(),
-      title: $('fTitle').value, url, description: $('fDesc').value,
+      title: $('fTitle').value, url, icon: $('fIcon').value, description: $('fDesc').value,
       w: $('fW').value, h: $('fH').value,
       color: $('fColor').value, embed: $('fEmbed').checked,
     });
@@ -601,6 +646,7 @@
   // ---------- Inicio ----------
   for (let i = 1; i <= MAX_SPAN; i++) { $('fW').add(new Option(i, i)); $('fH').add(new Option(i, i)); }
   for (let i = 4; i <= 12; i++) $('colsSelect').add(new Option(i, i));
+  for (let i = 1; i <= MAX_SPAN; i++) { $('uwSelect').add(new Option(i, i)); $('uhSelect').add(new Option(i, i)); }
   loadPublished().then(() => {
     let ok = false;
     try { ok = sessionStorage.getItem(SESSION_KEY) === '1'; } catch {}
